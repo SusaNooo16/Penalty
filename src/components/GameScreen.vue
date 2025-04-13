@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps({
   playerName: String,
@@ -10,6 +10,8 @@ const emit = defineEmits(['endGame'])
 
 const score = ref(0)
 const timeLeft = ref(props.timeLimit)
+const keeperPosition = ref(0)
+const keeperInterval = ref(null)
 
 const displayName = computed(() => {
   return props.playerName
@@ -22,6 +24,20 @@ const formattedTime = computed(() => {
 function handleEndGame() {
   emit('endGame', score.value)
 }
+
+onMounted(() => {
+  keeperInterval.value = setInterval(() => {
+    if (keeperPosition.value === 0) {
+      keeperPosition.value = 85
+    } else {
+      keeperPosition.value = 0
+    }
+  }, 1000)
+})
+
+onUnmounted(() => {
+  clearInterval(keeperInterval.value)
+})
 </script>
 
 <template>
@@ -36,9 +52,9 @@ function handleEndGame() {
     <main class="game-field">
       <div class="goal">
         <div class="goalkeeper-wrap">
-          <div class="goalkeeper">
-            <!-- <img src="../assets/goalkeeper.png" alt="goalkeeper"> -->
-            <img src="../assets//goalkeeperWithBall.png" alt="goalkeeperWithBall" />
+          <div class="goalkeeper" :style="{ left: keeperPosition + '%' }">
+            <img v-if="true" src="../assets/goalkeeper.png" alt="goalkeeper" />
+            <img v-else src="../assets//goalkeeperWithBall.png" alt="goalkeeperWithBall" />
           </div>
         </div>
       </div>
@@ -101,7 +117,7 @@ function handleEndGame() {
   bottom: 0;
   width: 15%;
   height: 100%;
-  transition: left 0.3s;
+  transition: left 1s;
   border-radius: 8px;
 }
 
