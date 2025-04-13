@@ -30,19 +30,22 @@ function handleEndGame() {
       <div class="timer">{{ formattedTime }}</div>
       <div class="score">Очки: {{ score }}</div>
       <div class="player-name">Игрок: {{ displayName }}</div>
-      <button class="continue-btn" @click="handleEndGame">
-        Далее
-      </button>
+      <button class="continue-btn" @click="handleEndGame">Далее</button>
     </header>
 
     <main class="game-field">
       <div class="goal">
         <div class="goalkeeper-wrap">
-          <div class="goalkeeper"></div>
+          <div class="goalkeeper">
+            <!-- <img src="../assets/goalkeeper.png" alt="goalkeeper"> -->
+            <img src="../assets//goalkeeperWithBall.png" alt="goalkeeperWithBall" />
+          </div>
         </div>
       </div>
 
-      <div class="ball"></div>
+      <div class="ball">
+        <img src="../assets/ball.png" alt="ball" />
+      </div>
     </main>
   </div>
 </template>
@@ -87,7 +90,7 @@ function handleEndGame() {
 .goal {
   position: relative;
   width: 80%;
-  height: 245px;
+  height: 300px;
   background: #444;
   border: 4px solid white;
   margin-bottom: 2rem;
@@ -98,18 +101,23 @@ function handleEndGame() {
   bottom: 0;
   width: 15%;
   height: 100%;
-  background-color: #6aaa64;
   transition: left 0.3s;
   border-radius: 8px;
 }
 
+.goalkeeper img {
+  height: 100%;
+}
+
 .ball {
-  width: 40px;
-  height: 40px;
-  background-color: white;
+  width: 75px;
+  height: 75px;
   border-radius: 50%;
   position: absolute;
   bottom: 20px;
   cursor: pointer;
+}
+.ball img {
+  height: 100%;
 }
 </style>
