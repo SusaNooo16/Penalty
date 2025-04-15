@@ -1,5 +1,15 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
+
+const GAME_STATES = {
+  start: 'start',
+  aiming: 'aiming',
+  choiceImpactForce: 'choiceImpactForce',
+  ballFlying: 'ballFlying',
+  goal: 'goal',
+  catch: 'catch',
+  miss: 'miss',
+}
 
 const props = defineProps({
   playerName: String,
@@ -10,8 +20,127 @@ const emit = defineEmits(['endGame'])
 
 const score = ref(0)
 const timeLeft = ref(props.timeLimit)
-const keeperPosition = ref(0)
-const keeperInterval = ref(null)
+
+const ballRef = ref(null)
+const goalkeeperRef = ref(null)
+const goalRef = ref(null)
+
+const gameState = ref(GAME_STATES.start)
+const mousePos = ref({ x: 0, y: 0 })
+const ballCenter = ref({ x: 0, y: 0 })
+
+const selectedTargetPos = ref({ x: 0, y: 0 })
+const transformBall = ref({ x: 0, y: 0 })
+
+const isStart = computed(() => {
+  return gameState.value === GAME_STATES.start
+})
+const isAiming = computed(() => {
+  return gameState.value === GAME_STATES.aiming
+})
+const isChoiceImpactForce = computed(() => {
+  return gameState.value === GAME_STATES.choiceImpactForce
+})
+const isBallFlying = computed(() => {
+  return gameState.value === GAME_STATES.ballFlying
+})
+const isGoal = computed(() => {
+  return gameState.value === GAME_STATES.goal
+})
+const isCatch = computed(() => {
+  return gameState.value === GAME_STATES.catch
+})
+const isMiss = computed(() => {
+  return gameState.value === GAME_STATES.miss
+})
+
+function handleClickBall() {
+  if (isStart.value) {
+    startAiming()
+  } else if (isChoiceImpactForce.value) {
+    stopPowerSelection()
+  }
+}
+
+function startAiming() {
+  gameState.value = GAME_STATES.aiming
+  updateBallCenter()
+}
+
+function selectTarget() {
+  if (isAiming.value) {
+    gameState.value = GAME_STATES.ballFlying
+    selectedTargetPos.value = mousePos.value
+    startPowerSelection()
+  }
+}
+
+function flyBall() {
+  const currentBallPos = ballRef.value.getBoundingClientRect()
+  transformBall.value = {
+    x: selectedTargetPos.value.x - currentBallPos.x - 28,
+    y: selectedTargetPos.value.y - currentBallPos.y + 28,
+  }
+
+  gameState.value = GAME_STATES.ballFlying
+
+  setTimeout(() => {
+    checkGoal()
+  }, flightTimeMS.value)
+}
+let goalStrike = ref(0)
+function checkGoal() {
+  const goalkeeperBox = goalkeeperRef.value.getBoundingClientRect()
+  const goalBox = goalRef.value.getBoundingClientRect()
+
+  if (
+    (goalBox.left > selectedTargetPos.value.x || goalBox.right < selectedTargetPos.value.x) &&
+    (goalBox.top > selectedTargetPos.value.y || goalBox.bottom < selectedTargetPos.value.y)
+  ) {
+    gameState.value = GAME_STATES.miss
+    goalStrike.value = 0
+  } else if (
+    goalkeeperBox.left <= selectedTargetPos.value.x &&
+    goalkeeperBox.right >= selectedTargetPos.value.x &&
+    goalkeeperBox.top <= selectedTargetPos.value.y &&
+    goalkeeperBox.bottom >= selectedTargetPos.value.y
+  ) {
+    gameState.value = GAME_STATES.catch
+    goalStrike.value = 0
+  } else {
+    gameState.value = GAME_STATES.goal
+    score.value += 10
+    goalStrike.value++
+  }
+  stopGoalkeeperAnimation()
+
+  setTimeout(() => {
+    gameState.value = GAME_STATES.start
+    selectedTargetPos.value = { x: 0, y: 0 }
+    transformBall.value = { x: 0, y: 0 }
+    animationFrameId = requestAnimationFrame(animateGoalkeeper)
+  }, 1000)
+}
+
+function updateAim(event) {
+  if (!isAiming.value) return
+  const fieldRect = event.currentTarget.getBoundingClientRect()
+  mousePos.value = {
+    x: event.clientX - fieldRect.left,
+    y: event.clientY - fieldRect.top,
+  }
+}
+
+function updateBallCenter() {
+  nextTick(() => {
+    const rect = ballRef.value.getBoundingClientRect()
+    const fieldRect = ballRef.value.offsetParent.getBoundingClientRect()
+    ballCenter.value = {
+      x: rect.left - fieldRect.left + rect.width / 2,
+      y: rect.top - fieldRect.top + rect.height / 2,
+    }
+  })
+}
 
 const displayName = computed(() => {
   return props.playerName
@@ -25,49 +154,182 @@ function handleEndGame() {
   emit('endGame', score.value)
 }
 
-onMounted(() => {
-  keeperInterval.value = setInterval(() => {
-    if (keeperPosition.value === 0) {
-      keeperPosition.value = 85
-    } else {
-      keeperPosition.value = 0
-    }
-  }, 1000)
+const goalkeeperX = ref(0)
+const direction = ref(1)
+
+let goalWidth = 0
+let keeperWidth = 0
+const DEFAULT_DURATION = 1000
+let lastTimestamp = null
+let animationFrameId = null
+
+const currentDuration = computed(() => {
+  return DEFAULT_DURATION - 10 * Math.floor(goalStrike.value / 3)
 })
 
-onUnmounted(() => {
-  clearInterval(keeperInterval.value)
+onMounted(() => {
+  goalWidth = goalRef.value.clientWidth
+  keeperWidth = goalkeeperRef.value.clientWidth
+  animationFrameId = requestAnimationFrame(animateGoalkeeper)
 })
+
+function animateGoalkeeper(timestamp) {
+  if (!lastTimestamp) lastTimestamp = timestamp
+  const delta = timestamp - lastTimestamp
+  lastTimestamp = timestamp
+
+  const distance = goalWidth - keeperWidth
+  const speed = distance / currentDuration.value
+  goalkeeperX.value += direction.value * speed * delta
+
+  if (goalkeeperX.value >= distance || goalkeeperX.value <= 0) {
+    direction.value *= -1
+    goalkeeperX.value = Math.max(0, Math.min(goalkeeperX.value, distance))
+  }
+
+  animationFrameId = requestAnimationFrame(animateGoalkeeper)
+}
+
+function stopGoalkeeperAnimation() {
+  cancelAnimationFrame(animationFrameId)
+  animationFrameId = null
+}
+
+const powerValue = ref(0)
+const flightTimeMS = computed(() => {
+  const BASE_TIME = 500
+  const PART_POWER = 2000
+  return BASE_TIME + +((PART_POWER * (100 - powerValue.value)) / 100).toFixed(2)
+})
+const flightTime = computed(() => {
+  return `${flightTimeMS.value / 1000}s`
+})
+let powerIncreasing = true
+let powerTimer = null
+
+function startPowerSelection() {
+  gameState.value = GAME_STATES.choiceImpactForce
+  powerValue.value = 0
+  powerIncreasing = true
+
+  powerTimer = setInterval(() => {
+    if (powerIncreasing) {
+      powerValue.value += 5
+      if (powerValue.value >= 100) {
+        powerValue.value = 100
+        powerIncreasing = false
+      }
+    } else {
+      powerValue.value -= 5
+      if (powerValue.value <= 0) {
+        powerValue.value = 0
+        powerIncreasing = true
+      }
+    }
+  }, 50)
+}
+
+function stopPowerSelection() {
+  clearInterval(powerTimer)
+  powerTimer = null
+
+  flyBall()
+}
 </script>
 
 <template>
   <div class="game-screen">
     <header class="game-header">
       <div class="timer">{{ formattedTime }}</div>
+      <div class="score">Голы подряд: {{ goalStrike }}</div>
       <div class="score">Очки: {{ score }}</div>
       <div class="player-name">Игрок: {{ displayName }}</div>
       <button class="continue-btn" @click="handleEndGame">Далее</button>
     </header>
 
-    <main class="game-field">
-      <div class="goal">
-        <div class="goalkeeper-wrap">
-          <div class="goalkeeper" :style="{ left: keeperPosition + '%' }">
-            <img v-if="true" src="../assets/goalkeeper.png" alt="goalkeeper" />
-            <img v-else src="../assets//goalkeeperWithBall.png" alt="goalkeeperWithBall" />
-          </div>
+    <main class="game-field" @mousemove="updateAim" @click="selectTarget">
+      <div class="goal" ref="goalRef" :style="{}">
+        <div class="goalkeeper" :style="{ left: goalkeeperX + 'px' }" ref="goalkeeperRef">
+          <img v-if="isCatch" src="../assets/goalkeeperWithBall.png" alt="goalkeeperWithBall" />
+          <img v-else src="../assets/goalkeeper.png" alt="goalkeeper" />
         </div>
       </div>
+      <transition name="notification-fade">
+        <div v-if="isGoal || isCatch || isMiss" class="notification">
+          <div v-if="isGoal" class="notification-goal">Гол!</div>
+          <div v-if="isCatch" class="notification-catch">Поймал!</div>
+          <div v-if="isMiss" class="notification-miss">Промазал!</div>
+        </div>
+      </transition>
 
-      <div class="ball">
+      <div v-if="isChoiceImpactForce || isBallFlying" class="power-indicator">
+        <div class="bar">
+          <div class="fill" :style="{ width: powerValue + '%' }"></div>
+        </div>
+      </div>
+      <div
+        class="ball"
+        @click.stop="handleClickBall"
+        ref="ballRef"
+        :style="{
+          transitionDuration: flightTime,
+          transform: isBallFlying ? `translate(${transformBall.x}px, ${transformBall.y}px)` : '',
+        }"
+      >
         <img src="../assets/ball.png" alt="ball" />
       </div>
+
+      <svg v-if="isAiming || isChoiceImpactForce" class="trajectory">
+        <defs>
+          <linearGradient id="dash-gradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#6aaa64" />
+            <stop offset="100%" stop-color="#3a3a3a" />
+          </linearGradient>
+        </defs>
+        <line
+          :x1="ballCenter.x"
+          :y1="ballCenter.y"
+          :x2="mousePos.x"
+          :y2="mousePos.y"
+          stroke="url(#dash-gradient)"
+          stroke-width="3"
+          stroke-dasharray="6, 6"
+          class="dash-line"
+        />
+        <circle :cx="mousePos.x" :cy="mousePos.y" r="6" fill="#6aaa64" class="end-circle" />
+        <circle
+          :cx="ballCenter.x"
+          :cy="ballCenter.y"
+          r="38"
+          stroke="#6aaa64"
+          stroke-width="3"
+          stroke-dasharray="6, 6"
+          class="dash-line"
+        />
+      </svg>
+
+      <svg v-if="isBallFlying" class="target">
+        <defs>
+          <linearGradient id="dash-gradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#6aaa64" />
+            <stop offset="100%" stop-color="#3a3a3a" />
+          </linearGradient>
+        </defs>
+        <circle
+          :cx="selectedTargetPos.x"
+          :cy="selectedTargetPos.y"
+          r="6"
+          fill="#6aaa64"
+          class="end-circle"
+        />
+      </svg>
     </main>
   </div>
 </template>
 
 <style scoped>
 .game-screen {
+  user-select: none;
   background-color: #2f2f2f;
   color: white;
   min-height: 100vh;
@@ -117,7 +379,6 @@ onUnmounted(() => {
   bottom: 0;
   width: 15%;
   height: 100%;
-  transition: left 1s;
   border-radius: 8px;
 }
 
@@ -132,8 +393,103 @@ onUnmounted(() => {
   position: absolute;
   bottom: 20px;
   cursor: pointer;
+  z-index: 10;
+  transition: 1s linear;
 }
 .ball img {
   height: 100%;
+}
+
+.target {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.trajectory {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.dash-line {
+  stroke-dasharray: 6, 6;
+  animation: dash 1s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+.notification {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 2rem;
+  color: #6aaa64;
+  font-weight: bold;
+  z-index: 5;
+}
+.notification-goal {
+  color: #6aaa64;
+}
+.notification-catch {
+  color: #ff0a16;
+}
+.notification-miss {
+  color: #e2e2e2;
+}
+
+.notification-fade-enter-active,
+.notification-fade-leave-active {
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
+}
+.notification-fade-enter-from,
+.notification-fade-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -10px);
+}
+.notification-fade-enter-to,
+.notification-fade-leave-from {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.power-indicator {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 20px;
+  background: #333;
+  border: 2px solid #6aaa64;
+  border-radius: 10px;
+  z-index: 4;
+  overflow: hidden;
+}
+
+.power-indicator .bar {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.power-indicator .fill {
+  height: 100%;
+  background: #6aaa64;
+  transition: width 0.05s;
 }
 </style>
