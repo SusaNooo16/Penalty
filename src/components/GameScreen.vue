@@ -9,6 +9,7 @@ const GAME_STATES = {
   goal: 'goal',
   catch: 'catch',
   miss: 'miss',
+  pause: 'pause',
 }
 
 const props = defineProps({
@@ -54,6 +55,9 @@ const isCatch = computed(() => {
 })
 const isMiss = computed(() => {
   return gameState.value === GAME_STATES.miss
+})
+const isPause = computed(() => {
+  return gameState.value === GAME_STATES.pause
 })
 
 function handleClickBall() {
@@ -178,14 +182,7 @@ onMounted(() => {
   keeperWidth = goalkeeperRef.value.clientWidth
   animationFrameId = requestAnimationFrame(animateGoalkeeper)
 
-  if (!props.isTestMode) {
-    timerInterval.value = setInterval(() => {
-      if (timeLeft.value <= 0) {
-        handleEndGame()
-      }
-      timeLeft.value = timeLeft.value - 1
-    }, 1000)
-  }
+  startTimer()
 })
 
 function animateGoalkeeper(timestamp) {
@@ -216,6 +213,7 @@ const flightTimeMS = computed(() => {
   const PART_POWER = 2000
   return BASE_TIME + +((PART_POWER * (100 - powerValue.value)) / 100).toFixed(2)
 })
+
 const flightTime = computed(() => {
   return `${flightTimeMS.value / 1000}s`
 })
@@ -250,6 +248,35 @@ function stopPowerSelection() {
 
   flyBall()
 }
+
+function startTimer() {
+  if (!props.isTestMode) {
+    timerInterval.value = setInterval(() => {
+      if (timeLeft.value <= 0) {
+        handleEndGame()
+      }
+      timeLeft.value = timeLeft.value - 1
+    }, 1000)
+  }
+}
+
+function handlePauseClick() {
+  if (isPause.value) {
+    continueGame()
+  } else if (isStart.value) {
+    pauseGame()
+  }
+}
+function pauseGame() {
+  gameState.value = GAME_STATES.pause
+  stopGoalkeeperAnimation()
+  clearInterval(timerInterval.value)
+}
+function continueGame() {
+  gameState.value = GAME_STATES.start
+  animationFrameId = requestAnimationFrame(animateGoalkeeper)
+  startTimer()
+}
 </script>
 
 <template>
@@ -261,6 +288,10 @@ function stopPowerSelection() {
       <div class="player-name">Игрок: {{ displayName }}</div>
       <button v-if="isTestMode" class="continue-btn" @click="handleEndGame">
         Закончить тестовую игру
+      </button>
+      <button class="pause-btn" @click="handlePauseClick" :disabled="!isStart && !isPause">
+        <template v-if="!isPause"> Пауза </template>
+        <template v-else> Продолжить </template>
       </button>
     </header>
 
@@ -372,6 +403,21 @@ function stopPowerSelection() {
   border-radius: 6px;
   cursor: pointer;
   font-weight: bold;
+}
+
+.pause-btn {
+  padding: 0.5rem 1rem;
+  background-color: #6aaa64;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.pause-btn:disabled {
+  background-color: #888;
+  cursor: not-allowed;
 }
 
 .game-field {
