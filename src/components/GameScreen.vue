@@ -14,12 +14,14 @@ const GAME_STATES = {
 const props = defineProps({
   playerName: String,
   timeLimit: Number,
+  isTestMode: Boolean,
 })
 
 const emit = defineEmits(['endGame'])
 
 const score = ref(0)
 const timeLeft = ref(props.timeLimit)
+const timerInterval = ref(null)
 
 const ballRef = ref(null)
 const goalkeeperRef = ref(null)
@@ -147,7 +149,11 @@ const displayName = computed(() => {
 })
 
 const formattedTime = computed(() => {
-  return timeLeft.value
+  const minutes = Math.floor(timeLeft.value / 60)
+    .toString()
+    .padStart(2, '0')
+  const seconds = (timeLeft.value % 60).toString().padStart(2, '0')
+  return `${minutes}:${seconds}`
 })
 
 function handleEndGame() {
@@ -171,6 +177,15 @@ onMounted(() => {
   goalWidth = goalRef.value.clientWidth
   keeperWidth = goalkeeperRef.value.clientWidth
   animationFrameId = requestAnimationFrame(animateGoalkeeper)
+
+  if (!props.isTestMode) {
+    timerInterval.value = setInterval(() => {
+      if (timeLeft.value <= 0) {
+        handleEndGame()
+      }
+      timeLeft.value = timeLeft.value - 1
+    }, 1000)
+  }
 })
 
 function animateGoalkeeper(timestamp) {
@@ -244,7 +259,9 @@ function stopPowerSelection() {
       <div class="score">Голы подряд: {{ goalStrike }}</div>
       <div class="score">Очки: {{ score }}</div>
       <div class="player-name">Игрок: {{ displayName }}</div>
-      <button class="continue-btn" @click="handleEndGame">Далее</button>
+      <button v-if="isTestMode" class="continue-btn" @click="handleEndGame">
+        Закончить тестовую игру
+      </button>
     </header>
 
     <main class="game-field" @mousemove="updateAim" @click="selectTarget">
