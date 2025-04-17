@@ -102,8 +102,8 @@ function checkGoal() {
   if (
     goalBox.left > selectedTargetPos.value.x ||
     goalBox.right < selectedTargetPos.value.x ||
-    goalBox.top > selectedTargetPos.value.y ||
-    goalBox.bottom < selectedTargetPos.value.y
+    goalBox.top > selectedTargetPos.value.y + 66 ||
+    goalBox.bottom < selectedTargetPos.value.y + 66
   ) {
     gameState.value = GAME_STATES.miss
     goalStrike.value = 0
