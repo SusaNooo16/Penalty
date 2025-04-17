@@ -100,8 +100,10 @@ function checkGoal() {
   const goalBox = goalRef.value.getBoundingClientRect()
 
   if (
-    (goalBox.left > selectedTargetPos.value.x || goalBox.right < selectedTargetPos.value.x) ||
-    (goalBox.top > selectedTargetPos.value.y || goalBox.bottom < selectedTargetPos.value.y)
+    goalBox.left > selectedTargetPos.value.x ||
+    goalBox.right < selectedTargetPos.value.x ||
+    goalBox.top > selectedTargetPos.value.y ||
+    goalBox.bottom < selectedTargetPos.value.y
   ) {
     gameState.value = GAME_STATES.miss
     goalStrike.value = 0
@@ -117,6 +119,9 @@ function checkGoal() {
     gameState.value = GAME_STATES.goal
     score.value++
     goalStrike.value++
+    if (goalStrike.value >= 3) {
+      triggerBonus()
+    }
   }
   stopGoalkeeperAnimation()
 
@@ -211,7 +216,11 @@ const powerValue = ref(0)
 const flightTimeMS = computed(() => {
   const BASE_TIME = 500
   const PART_POWER = 2000
-  return BASE_TIME + +((PART_POWER * (100 - powerValue.value)) / 100).toFixed(2)
+  const BONUS_MULTIPLIER = goalStrike.value >= 3 ? 2 : 1
+  return (
+    (BASE_TIME + +((PART_POWER * (100 - powerValue.value)) / 100)) /
+    BONUS_MULTIPLIER
+  ).toFixed(2)
 })
 
 const flightTime = computed(() => {
@@ -277,6 +286,14 @@ function continueGame() {
   animationFrameId = requestAnimationFrame(animateGoalkeeper)
   startTimer()
 }
+
+const showBonus = ref(false)
+function triggerBonus() {
+  showBonus.value = true
+  setTimeout(() => {
+    showBonus.value = false
+  }, 2000)
+}
 </script>
 
 <template>
@@ -308,6 +325,9 @@ function continueGame() {
           <div v-if="isCatch" class="notification-catch">Поймал!</div>
           <div v-if="isMiss" class="notification-miss">Промазал!</div>
         </div>
+      </transition>
+      <transition name="bonus-fade">
+        <div v-if="showBonus" class="bonus-notification">Бонус: Ускорение мяча!</div>
       </transition>
 
       <div v-if="isChoiceImpactForce || isBallFlying" class="power-indicator">
@@ -553,5 +573,48 @@ function continueGame() {
 .power-indicator .fill {
   height: 100%;
   background: #6aaa64;
+}
+
+.bonus-notification {
+  position: absolute;
+  top: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  background-color: #ffd700;
+  color: #1f1f1f;
+  font-weight: bold;
+  font-size: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+  z-index: 10;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) scale(1.1);
+  }
+}
+
+.bonus-fade-enter-active,
+.bonus-fade-leave-active {
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
+}
+.bonus-fade-enter-from,
+.bonus-fade-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -10px);
+}
+.bonus-fade-enter-to,
+.bonus-fade-leave-from {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 </style>
