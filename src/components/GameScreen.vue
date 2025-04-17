@@ -115,7 +115,7 @@ function checkGoal() {
     goalStrike.value = 0
   } else {
     gameState.value = GAME_STATES.goal
-    score.value += 10
+    score.value++
     goalStrike.value++
   }
   stopGoalkeeperAnimation()
@@ -174,7 +174,7 @@ let lastTimestamp = null
 let animationFrameId = null
 
 const currentDuration = computed(() => {
-  return DEFAULT_DURATION - 10 * Math.floor(goalStrike.value / 3)
+  return DEFAULT_DURATION - 10 * score.value
 })
 
 onMounted(() => {
