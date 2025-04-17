@@ -300,7 +300,6 @@ function triggerBonus() {
   <div class="game-screen">
     <header class="game-header">
       <div class="timer">{{ formattedTime }}</div>
-      <div class="score">Голы подряд: {{ goalStrike }}</div>
       <div class="score">Очки: {{ score }}</div>
       <div class="player-name">Игрок: {{ displayName }}</div>
       <button v-if="isTestMode" class="continue-btn" @click="handleEndGame">
