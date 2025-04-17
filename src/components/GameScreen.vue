@@ -100,16 +100,16 @@ function checkGoal() {
   const goalBox = goalRef.value.getBoundingClientRect()
 
   if (
-    (goalBox.left > selectedTargetPos.value.x || goalBox.right < selectedTargetPos.value.x) &&
+    (goalBox.left > selectedTargetPos.value.x || goalBox.right < selectedTargetPos.value.x) ||
     (goalBox.top > selectedTargetPos.value.y || goalBox.bottom < selectedTargetPos.value.y)
   ) {
     gameState.value = GAME_STATES.miss
     goalStrike.value = 0
   } else if (
-    goalkeeperBox.left <= selectedTargetPos.value.x &&
-    goalkeeperBox.right >= selectedTargetPos.value.x &&
-    goalkeeperBox.top <= selectedTargetPos.value.y &&
-    goalkeeperBox.bottom >= selectedTargetPos.value.y
+    goalkeeperBox.left - goalkeeperBox.width / 2 <= selectedTargetPos.value.x &&
+    goalkeeperBox.right + goalkeeperBox.width / 2 >= selectedTargetPos.value.x &&
+    goalkeeperBox.top - goalkeeperBox.height / 2 <= selectedTargetPos.value.y &&
+    goalkeeperBox.bottom + goalkeeperBox.height / 2 >= selectedTargetPos.value.y
   ) {
     gameState.value = GAME_STATES.catch
     goalStrike.value = 0
