@@ -239,7 +239,7 @@ function startPowerSelection() {
         powerIncreasing = true
       }
     }
-  }, 50)
+  }, 15)
 }
 
 function stopPowerSelection() {
@@ -553,6 +553,5 @@ function continueGame() {
 .power-indicator .fill {
   height: 100%;
   background: #6aaa64;
-  transition: width 0.05s;
 }
 </style>
